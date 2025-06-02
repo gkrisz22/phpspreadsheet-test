@@ -98,7 +98,6 @@ class ContentTypes extends WriterPart
         }
 
         // Add worksheet relationship content types
-        /** @var mixed[][][][] */
         $unparsedLoadedData = $spreadsheet->getUnparsedLoadedData();
         $chart = 1;
         for ($i = 0; $i < $sheetCount; ++$i) {
@@ -135,7 +134,7 @@ class ContentTypes extends WriterPart
             $mimeType = '';
 
             $drawing = $this->getParentWriter()->getDrawingHashTable()->getByIndex($i);
-            if ($drawing instanceof WorksheetDrawing && $drawing->getPath() !== '') {
+            if ($drawing instanceof WorksheetDrawing) {
                 $extension = strtolower($drawing->getExtension());
                 if ($drawing->getIsUrl()) {
                     $mimeType = image_type_to_mime_type($drawing->getType());
@@ -159,7 +158,6 @@ class ContentTypes extends WriterPart
         if ($spreadsheet->hasRibbonBinObjects()) {
             // Some additional objects in the ribbon ?
             // we need to write "Extension" but not already write for media content
-            /** @var string[] */
             $tabRibbonTypes = array_diff($spreadsheet->getRibbonBinObjects('types') ?? [], array_keys($aMediaContentTypes));
             foreach ($tabRibbonTypes as $aRibbonType) {
                 $mimeType = 'image/.' . $aRibbonType; //we wrote $mimeType like customUI Editor
@@ -198,32 +196,23 @@ class ContentTypes extends WriterPart
             $bgImage = $spreadsheet->getSheet($i)->getBackgroundImage();
             $mimeType = $spreadsheet->getSheet($i)->getBackgroundMime();
             $extension = $spreadsheet->getSheet($i)->getBackgroundExtension();
-            if ($bgImage !== '' && !isset($aMediaContentTypes[$extension])) {
+            if ($bgImage !== '' && !isset($aMediaContentTypes[$mimeType])) {
                 $this->writeDefaultContentType($objWriter, $extension, $mimeType);
             }
         }
 
         // unparsed defaults
         if (isset($unparsedLoadedData['default_content_types'])) {
-            /** @var array<string, string> */
-            $unparsedDefault = $unparsedLoadedData['default_content_types'];
-            foreach ($unparsedDefault as $extName => $contentType) {
+            foreach ($unparsedLoadedData['default_content_types'] as $extName => $contentType) {
                 $this->writeDefaultContentType($objWriter, $extName, $contentType);
             }
         }
 
         // unparsed overrides
         if (isset($unparsedLoadedData['override_content_types'])) {
-            /** @var array<string, string> */
-            $unparsedOverride = $unparsedLoadedData['override_content_types'];
-            foreach ($unparsedOverride as $partName => $overrideType) {
+            foreach ($unparsedLoadedData['override_content_types'] as $partName => $overrideType) {
                 $this->writeOverrideContentType($objWriter, $partName, $overrideType);
             }
-        }
-
-        // Metadata needed for Dynamic Arrays
-        if ($this->getParentWriter()->useDynamicArrays()) {
-            $this->writeOverrideContentType($objWriter, '/xl/metadata.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml');
         }
 
         $objWriter->endElement();

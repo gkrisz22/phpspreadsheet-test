@@ -78,11 +78,10 @@ class DataType
      */
     public static function checkErrorCode(mixed $value): string
     {
-        $default = '#NULL!';
-        $value = ($value === null) ? $default : StringHelper::convertToString($value, false, $default);
+        $value = (string) $value;
 
         if (!isset(self::$errorCodes[$value])) {
-            $value = $default;
+            $value = '#NULL!';
         }
 
         return $value;

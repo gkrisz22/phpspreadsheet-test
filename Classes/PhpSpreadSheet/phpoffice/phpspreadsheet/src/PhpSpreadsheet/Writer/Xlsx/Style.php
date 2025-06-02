@@ -199,7 +199,7 @@ class Style extends WriterPart
         $objWriter->writeAttribute('position', '0');
 
         // color
-        if (!empty($fill->getStartColor()->getARGB())) {
+        if ($fill->getStartColor()->getARGB() !== null) {
             $objWriter->startElement('color');
             $objWriter->writeAttribute('rgb', $fill->getStartColor()->getARGB());
             $objWriter->endElement();
@@ -212,7 +212,7 @@ class Style extends WriterPart
         $objWriter->writeAttribute('position', '1');
 
         // color
-        if (!empty($fill->getEndColor()->getARGB())) {
+        if ($fill->getEndColor()->getARGB() !== null) {
             $objWriter->startElement('color');
             $objWriter->writeAttribute('rgb', $fill->getEndColor()->getARGB());
             $objWriter->endElement();
@@ -244,9 +244,7 @@ class Style extends WriterPart
 
         // patternFill
         $objWriter->startElement('patternFill');
-        if ($fill->getFillType()) {
-            $objWriter->writeAttribute('patternType', (string) $fill->getFillType());
-        }
+        $objWriter->writeAttribute('patternType', (string) $fill->getFillType());
 
         if (self::writePatternColors($fill)) {
             // fgColor
@@ -347,12 +345,7 @@ class Style extends WriterPart
         }
 
         // Foreground color
-        if ($font->getColor()->getTheme() >= 0) {
-            $this->startFont($objWriter, $fontStarted);
-            $objWriter->startElement('color');
-            $objWriter->writeAttribute('theme', (string) $font->getColor()->getTheme());
-            $objWriter->endElement();
-        } elseif ($font->getColor()->getARGB() !== null) {
+        if ($font->getColor()->getARGB() !== null) {
             $this->startFont($objWriter, $fontStarted);
             $objWriter->startElement('color');
             $objWriter->writeAttribute('rgb', $font->getColor()->getARGB());
@@ -462,10 +455,6 @@ class Style extends WriterPart
             if ($vertical !== '') {
                 $objWriter->writeAttribute('vertical', $vertical);
             }
-            $justifyLastLine = $style->getAlignment()->getJustifyLastLine();
-            if (is_bool($justifyLastLine)) {
-                $objWriter->writeAttribute('justifyLastLine', (string) (int) $justifyLastLine);
-            }
 
             if ($style->getAlignment()->getTextRotation() >= 0) {
                 $textRotation = $style->getAlignment()->getTextRotation();
@@ -518,8 +507,55 @@ class Style extends WriterPart
         // fill
         $this->writeFill($objWriter, $style->getFill());
 
+        // alignment
+        $horizontal = Alignment::HORIZONTAL_ALIGNMENT_FOR_XLSX[$style->getAlignment()->getHorizontal()] ?? '';
+        $vertical = Alignment::VERTICAL_ALIGNMENT_FOR_XLSX[$style->getAlignment()->getVertical()] ?? '';
+        $rotation = $style->getAlignment()->getTextRotation();
+        if ($horizontal || $vertical || $rotation !== null) {
+            $objWriter->startElement('alignment');
+            if ($horizontal) {
+                $objWriter->writeAttribute('horizontal', $horizontal);
+            }
+            if ($vertical) {
+                $objWriter->writeAttribute('vertical', $vertical);
+            }
+
+            if ($rotation !== null) {
+                if ($rotation >= 0) {
+                    $textRotation = $rotation;
+                } else {
+                    $textRotation = 90 - $rotation;
+                }
+                $objWriter->writeAttribute('textRotation', (string) $textRotation);
+            }
+            $objWriter->endElement();
+        }
+
         // border
         $this->writeBorder($objWriter, $style->getBorders());
+
+        // protection
+        if ((!empty($style->getProtection()->getLocked())) || (!empty($style->getProtection()->getHidden()))) {
+            if (
+                $style->getProtection()->getLocked() !== Protection::PROTECTION_INHERIT
+                || $style->getProtection()->getHidden() !== Protection::PROTECTION_INHERIT
+            ) {
+                $objWriter->startElement('protection');
+                if (
+                    ($style->getProtection()->getLocked() !== null)
+                    && ($style->getProtection()->getLocked() !== Protection::PROTECTION_INHERIT)
+                ) {
+                    $objWriter->writeAttribute('locked', ($style->getProtection()->getLocked() == Protection::PROTECTION_PROTECTED ? 'true' : 'false'));
+                }
+                if (
+                    ($style->getProtection()->getHidden() !== null)
+                    && ($style->getProtection()->getHidden() !== Protection::PROTECTION_INHERIT)
+                ) {
+                    $objWriter->writeAttribute('hidden', ($style->getProtection()->getHidden() == Protection::PROTECTION_PROTECTED ? 'true' : 'false'));
+                }
+                $objWriter->endElement();
+            }
+        }
 
         $objWriter->endElement();
     }

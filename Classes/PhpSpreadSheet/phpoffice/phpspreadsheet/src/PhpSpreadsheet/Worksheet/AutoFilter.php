@@ -8,8 +8,6 @@ use PhpOffice\PhpSpreadsheet\Calculation\Calculation;
 use PhpOffice\PhpSpreadsheet\Calculation\Functions;
 use PhpOffice\PhpSpreadsheet\Calculation\Internal\WildcardMatch;
 use PhpOffice\PhpSpreadsheet\Cell\AddressRange;
-use PhpOffice\PhpSpreadsheet\Cell\CellAddress;
-use PhpOffice\PhpSpreadsheet\Cell\CellRange;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Exception;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -50,7 +48,7 @@ class AutoFilter implements Stringable
     /**
      * Create a new AutoFilter.
      *
-     * @param AddressRange<CellAddress>|AddressRange<int>|AddressRange<string>|array{0: int, 1: int, 2: int, 3: int}|array{0: int, 1: int}|string $range
+     * @param AddressRange|array{0: int, 1: int, 2: int, 3: int}|array{0: int, 1: int}|string $range
      *            A simple string containing a Cell range like 'A1:E10' is permitted
      *              or passing in an array of [$fromColumnIndex, $fromRow, $toColumnIndex, $toRow] (e.g. [3, 5, 6, 8]),
      *              or an AddressRange object.
@@ -102,7 +100,7 @@ class AutoFilter implements Stringable
     /**
      * Set AutoFilter Cell Range.
      *
-     * @param AddressRange<CellRange>|array{0: int, 1: int, 2: int, 3: int}|array{0: int, 1: int}|string $range
+     * @param AddressRange|array{0: int, 1: int, 2: int, 3: int}|array{0: int, 1: int}|string $range
      *            A simple string containing a Cell range like 'A1:E10' or a Cell address like 'A1' is permitted
      *              or passing in an array of [$fromColumnIndex, $fromRow, $toColumnIndex, $toRow] (e.g. [3, 5, 6, 8]),
      *              or an AddressRange object.
@@ -145,7 +143,7 @@ class AutoFilter implements Stringable
         $this->evaluated = false;
         if ($this->workSheet !== null) {
             $thisrange = $this->range;
-            $range = (string) preg_replace('/\d+$/', (string) $this->workSheet->getHighestRow(), $thisrange);
+            $range = (string) preg_replace('/\\d+$/', (string) $this->workSheet->getHighestRow(), $thisrange);
             if ($range !== $thisrange) {
                 $this->setRange($range);
             }
@@ -295,7 +293,7 @@ class AutoFilter implements Stringable
         $fromColumn = strtoupper($fromColumn);
         $toColumn = strtoupper($toColumn);
 
-        if (isset($this->columns[$fromColumn])) {
+        if (($fromColumn !== null) && (isset($this->columns[$fromColumn])) && ($toColumn !== null)) {
             $this->columns[$fromColumn]->setParent();
             $this->columns[$fromColumn]->setColumnIndex($toColumn);
             $this->columns[$toColumn] = $this->columns[$fromColumn];
@@ -311,13 +309,13 @@ class AutoFilter implements Stringable
     /**
      * Test if cell value is in the defined set of values.
      *
-     * @param array{blanks: bool, filterValues: array<string,array<string,string>>} $dataSet
+     * @param mixed[] $dataSet
      */
     protected static function filterTestInSimpleDataSet(mixed $cellValue, array $dataSet): bool
     {
         $dataSetValues = $dataSet['filterValues'];
         $blanks = $dataSet['blanks'];
-        if (($cellValue === '') || ($cellValue === null)) {
+        if (($cellValue == '') || ($cellValue === null)) {
             return $blanks;
         }
 
@@ -327,13 +325,13 @@ class AutoFilter implements Stringable
     /**
      * Test if cell value is in the defined set of Excel date values.
      *
-     * @param array{blanks: bool, filterValues: array<string,array<string,string>>} $dataSet
+     * @param mixed[] $dataSet
      */
     protected static function filterTestInDateGroupSet(mixed $cellValue, array $dataSet): bool
     {
         $dateSet = $dataSet['filterValues'];
         $blanks = $dataSet['blanks'];
-        if (($cellValue === '') || ($cellValue === null)) {
+        if (($cellValue == '') || ($cellValue === null)) {
             return $blanks;
         }
         $timeZone = new DateTimeZone('UTC');
@@ -368,26 +366,28 @@ class AutoFilter implements Stringable
     /**
      * Test if cell value is within a set of values defined by a ruleset.
      *
-     * @param mixed[][] $ruleSet
+     * @param mixed[] $ruleSet
      */
     protected static function filterTestInCustomDataSet(mixed $cellValue, array $ruleSet): bool
     {
+        /** @var array[] $dataSet */
         $dataSet = $ruleSet['filterRules'];
         $join = $ruleSet['join'];
         $customRuleForBlanks = $ruleSet['customRuleForBlanks'] ?? false;
 
         if (!$customRuleForBlanks) {
             //    Blank cells are always ignored, so return a FALSE
-            if (($cellValue === '') || ($cellValue === null)) {
+            if (($cellValue == '') || ($cellValue === null)) {
                 return false;
             }
         }
         $returnVal = ($join == AutoFilter\Column::AUTOFILTER_COLUMN_JOIN_AND);
         foreach ($dataSet as $rule) {
-            /** @var string[] $rule */
+            /** @var string $ruleValue */
             $ruleValue = $rule['value'];
+            /** @var string $ruleOperator */
             $ruleOperator = $rule['operator'];
-            /** @var string */
+            /** @var string $cellValueString */
             $cellValueString = $cellValue ?? '';
             $retVal = false;
 
@@ -422,8 +422,8 @@ class AutoFilter implements Stringable
                 }
             } elseif ($ruleValue == '') {
                 $retVal = match ($ruleOperator) {
-                    Rule::AUTOFILTER_COLUMN_RULE_EQUAL => ($cellValue === '') || ($cellValue === null),
-                    Rule::AUTOFILTER_COLUMN_RULE_NOTEQUAL => ($cellValue != ''),
+                    Rule::AUTOFILTER_COLUMN_RULE_EQUAL => ($cellValue == '') || ($cellValue === null),
+                    Rule::AUTOFILTER_COLUMN_RULE_NOTEQUAL => ($cellValue != '') && ($cellValue !== null),
                     default => true,
                 };
             } else {
@@ -484,7 +484,7 @@ class AutoFilter implements Stringable
     protected static function filterTestInPeriodDateSet(mixed $cellValue, array $monthSet): bool
     {
         //    Blank cells are always ignored, so return a FALSE
-        if (($cellValue === '') || ($cellValue === null)) {
+        if (($cellValue == '') || ($cellValue === null)) {
             return false;
         }
 
@@ -527,7 +527,6 @@ class AutoFilter implements Stringable
         Rule::AUTOFILTER_RULETYPE_DYNAMIC_YESTERDAY => 'dynamicYesterday',
     ];
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicLastMonth(): array
     {
         $maxval = new DateTime();
@@ -553,7 +552,6 @@ class AutoFilter implements Stringable
         return $val;
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicLastQuarter(): array
     {
         $maxval = self::firstDayOfQuarter();
@@ -563,7 +561,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicLastWeek(): array
     {
         $val = new DateTime();
@@ -577,7 +574,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicLastYear(): array
     {
         $val = new DateTime();
@@ -588,7 +584,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicNextMonth(): array
     {
         $val = new DateTime();
@@ -603,7 +598,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicNextQuarter(): array
     {
         $val = self::firstDayOfQuarter();
@@ -614,7 +608,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicNextWeek(): array
     {
         $val = new DateTime();
@@ -628,7 +621,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicNextYear(): array
     {
         $val = new DateTime();
@@ -639,7 +631,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicThisMonth(): array
     {
         $baseDate = new DateTime();
@@ -653,7 +644,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicThisQuarter(): array
     {
         $val = self::firstDayOfQuarter();
@@ -663,7 +653,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicThisWeek(): array
     {
         $val = new DateTime();
@@ -677,7 +666,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicThisYear(): array
     {
         $val = new DateTime();
@@ -688,7 +676,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicToday(): array
     {
         $val = new DateTime();
@@ -699,7 +686,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicTomorrow(): array
     {
         $val = new DateTime();
@@ -711,7 +697,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicYearToDate(): array
     {
         $maxval = new DateTime();
@@ -722,7 +707,6 @@ class AutoFilter implements Stringable
         return [$val, $maxval];
     }
 
-    /** @return array{DateTime, DateTime} */
     private static function dynamicYesterday(): array
     {
         $maxval = new DateTime();
@@ -746,7 +730,7 @@ class AutoFilter implements Stringable
         //    Val is lowest permitted value.
         //    Maxval is greater than highest permitted value
         $val = $maxval = 0;
-        if (is_callable($callBack)) { //* @phpstan-ignore-line
+        if (is_callable($callBack)) {
             [$val, $maxval] = $callBack();
         }
         $val = Date::dateTimeToExcel($val);
@@ -779,13 +763,9 @@ class AutoFilter implements Stringable
                 sort($dataValues);
             }
 
-            if (is_numeric($ruleValue)) {
-                $ruleValue = (int) $ruleValue;
-            }
-            if ($ruleValue === null || is_int($ruleValue)) {
-                $slice = array_slice($dataValues, 0, $ruleValue);
-                $retVal = array_pop($slice);
-            }
+            $slice = array_slice($dataValues, 0, $ruleValue);
+
+            $retVal = array_pop($slice);
         }
 
         return $retVal;
@@ -955,7 +935,6 @@ class AutoFilter implements Stringable
                                 if ($periodType == 'M') {
                                     $ruleValues = [$period];
                                 } else {
-                                    /** @var int $period */
                                     --$period;
                                     $periodEnd = (1 + $period) * 3;
                                     $periodStart = 1 + $period * 3;
@@ -989,7 +968,7 @@ class AutoFilter implements Stringable
                         $ruleOperator = $rule->getOperator();
                     }
                     if (is_numeric($ruleValue) && $ruleOperator === Rule::AUTOFILTER_COLUMN_RULE_TOPTEN_PERCENT) {
-                        $ruleValue = (int) floor((float) $ruleValue * ($dataRowCount / 100));
+                        $ruleValue = floor((float) $ruleValue * ($dataRowCount / 100));
                     }
                     if (!is_array($ruleValue) && $ruleValue < 1) {
                         $ruleValue = 1;
@@ -998,7 +977,6 @@ class AutoFilter implements Stringable
                         $ruleValue = 500;
                     }
 
-                    /** @var float|int|string */
                     $maxVal = $this->calculateTopTenValue($columnID, $rangeStart[1] + 1, (int) $rangeEnd[1], $toptenRuleType, $ruleValue);
 
                     $operator = ($toptenRuleType == Rule::AUTOFILTER_COLUMN_RULE_TOPTEN_TOP)
@@ -1025,7 +1003,6 @@ class AutoFilter implements Stringable
                 //    Execute the filter test
                 /** @var callable */
                 $temp = [self::class, $columnFilterTest['method']];
-                /** @var bool */
                 $result // $result && // phpstan says $result is always true here
                     = call_user_func_array($temp, [$cellValue, $columnFilterTest['arguments']]);
                 //    If filter test has resulted in FALSE, exit the loop straightaway rather than running any more tests
@@ -1086,7 +1063,7 @@ class AutoFilter implements Stringable
                 //    The columns array of \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet\AutoFilter objects
                 $this->{$key} = [];
                 foreach ($value as $k => $v) {
-                    $this->{$key}[$k] = clone $v; //* @phpstan-ignore-line
+                    $this->{$key}[$k] = clone $v;
                     // attach the new cloned Column to this new cloned Autofilter object
                     $this->{$key}[$k]->setParent($this);
                 }

@@ -2,7 +2,6 @@
 
 namespace PhpOffice\PhpSpreadsheet\Reader;
 
-use PhpOffice\PhpSpreadsheet\Cell\IValueBinder;
 use PhpOffice\PhpSpreadsheet\Exception as PhpSpreadsheetException;
 use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
 use PhpOffice\PhpSpreadsheet\Reader\Security\XmlScanner;
@@ -20,7 +19,7 @@ abstract class BaseReader implements IReader
 
     /**
      * Read empty cells?
-     * Identifies whether the Reader should read data values for all cells, or should ignore cells containing
+     * Identifies whether the Reader should read data values for cells all cells, or should ignore cells containing
      *         null value or empty string.
      */
     protected bool $readEmptyCells = true;
@@ -41,13 +40,6 @@ abstract class BaseReader implements IReader
     protected ?array $loadSheetsOnly = null;
 
     /**
-     * Ignore rows with no cells?
-     * Identifies whether the Reader should ignore rows with no cells.
-     *        Currently implemented only for Xlsx.
-     */
-    protected bool $ignoreRowsWithNoCells = false;
-
-    /**
      * IReadFilter instance.
      */
     protected IReadFilter $readFilter;
@@ -56,8 +48,6 @@ abstract class BaseReader implements IReader
     protected $fileHandle;
 
     protected ?XmlScanner $securityScanner = null;
-
-    protected ?IValueBinder $valueBinder = null;
 
     public function __construct()
     {
@@ -88,18 +78,6 @@ abstract class BaseReader implements IReader
         return $this;
     }
 
-    public function getIgnoreRowsWithNoCells(): bool
-    {
-        return $this->ignoreRowsWithNoCells;
-    }
-
-    public function setIgnoreRowsWithNoCells(bool $ignoreRowsWithNoCells): self
-    {
-        $this->ignoreRowsWithNoCells = $ignoreRowsWithNoCells;
-
-        return $this;
-    }
-
     public function getIncludeCharts(): bool
     {
         return $this->includeCharts;
@@ -112,13 +90,11 @@ abstract class BaseReader implements IReader
         return $this;
     }
 
-    /** @return null|string[] */
     public function getLoadSheetsOnly(): ?array
     {
         return $this->loadSheetsOnly;
     }
 
-    /** @param null|string|string[] $sheetList */
     public function setLoadSheetsOnly(string|array|null $sheetList): self
     {
         if ($sheetList === null) {
@@ -171,11 +147,8 @@ abstract class BaseReader implements IReader
         if (((bool) ($flags & self::READ_DATA_ONLY)) === true) {
             $this->setReadDataOnly(true);
         }
-        if (((bool) ($flags & self::IGNORE_EMPTY_CELLS)) === true) {
+        if (((bool) ($flags & self::SKIP_EMPTY_CELLS) || (bool) ($flags & self::IGNORE_EMPTY_CELLS)) === true) {
             $this->setReadEmptyCells(false);
-        }
-        if (((bool) ($flags & self::IGNORE_ROWS_WITH_NO_CELLS)) === true) {
-            $this->setIgnoreRowsWithNoCells(true);
         }
     }
 
@@ -223,8 +196,6 @@ abstract class BaseReader implements IReader
 
     /**
      * Return worksheet info (Name, Last Column Letter, Last Column Index, Total Rows, Total Columns).
-     *
-     * @return array<int, array{worksheetName: string, lastColumnLetter: string, lastColumnIndex: int, totalRows: int, totalColumns: int, sheetState: string}>
      */
     public function listWorksheetInfo(string $filename): array
     {
@@ -236,34 +207,17 @@ abstract class BaseReader implements IReader
      * possibly without parsing the whole file to a Spreadsheet object.
      * Readers will often have a more efficient method with which
      * they can override this method.
-     *
-     * @return string[]
      */
     public function listWorksheetNames(string $filename): array
     {
         $returnArray = [];
         $info = $this->listWorksheetInfo($filename);
         foreach ($info as $infoArray) {
-            $returnArray[] = $infoArray['worksheetName'];
+            if (isset($infoArray['worksheetName'])) {
+                $returnArray[] = $infoArray['worksheetName'];
+            }
         }
 
         return $returnArray;
-    }
-
-    public function getValueBinder(): ?IValueBinder
-    {
-        return $this->valueBinder;
-    }
-
-    public function setValueBinder(?IValueBinder $valueBinder): self
-    {
-        $this->valueBinder = $valueBinder;
-
-        return $this;
-    }
-
-    protected function newSpreadsheet(): Spreadsheet
-    {
-        return new Spreadsheet();
     }
 }
